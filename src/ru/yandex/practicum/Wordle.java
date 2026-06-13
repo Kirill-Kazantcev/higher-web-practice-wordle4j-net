@@ -1,17 +1,13 @@
 package ru.yandex.practicum;
 
 import ru.yandex.practicum.exception.GameException;
+import ru.yandex.practicum.game.WordleWordMatcher;
+import ru.yandex.practicum.net.WordleStatisticsClient;
+import ru.yandex.practicum.util.ConfigLoader;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Scanner;
 
 /**
@@ -22,17 +18,8 @@ import java.util.Scanner;
  * </p>
  */
 public class Wordle {
-    /** Путь к файлу словаря */
-    private static final String DICTIONARY_FILE = "words_ru.txt";
-    /** Путь к файлу лога */
-    private static final String LOG_FILE = "wordle.log";
-    /** URL сервера статистики */
-    private static final String SERVER_URL = "http://localhost:8081";
-    /** HTTP клиент для отправки запросов к серверу статистики */
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
-    /** Последний использованный никнейм (для автоматической подстановки) */
+    private static PrintWriter log;
+    private static WordleStatisticsClient statsClient;
     private static String lastNickname = null;
 
     /**
@@ -41,37 +28,76 @@ public class Wordle {
      * @param args аргументы командной строки (не используются)
      */
     public static void main(String[] args) {
-        try (PrintWriter log = new PrintWriter(new FileWriter(LOG_FILE, true), true);
-             Scanner scanner = new Scanner(System.in)) {
+        try {
+            // Загрузка конфигурации
+            ConfigLoader config = new ConfigLoader("application.properties");
+            String dictFile = config.getString("dictionary.path");
+            String serverUrl = config.getString("server.url");
+            String logFile = config.getString("log.file");
 
+            // Настройка лога
+            log = new PrintWriter(new FileWriter(logFile, true), true);
             log.println("=== Игра Wordle запущена ===");
-            System.out.println("Добро пожаловать в игру Wordle!");
-            System.out.println("У вас есть 6 попыток, чтобы угадать слово из 5 букв.");
-            System.out.println("Для получения подсказки нажмите Enter.");
-            System.out.println("Доступные команды: /top, /stats, /exit");
 
+            // Загрузка словаря
             WordleDictionaryLoader loader = new WordleDictionaryLoader();
-            WordleDictionary dictionary = loader.load(DICTIONARY_FILE);
-            log.println("Словарь загружен. Количество слов: " + dictionary.getWords().size());
+            WordleDictionary dictionary = loader.load(dictFile);
+            log.println("Словарь загружен. Количество слов: " + dictionary.size());
 
-            boolean playing = true;
-            while (playing) {
-                WordleGame game = new WordleGame(dictionary);
-                runGame(game, scanner, log);
-                System.out.print("\nХотите сыграть ещё? (д/н): ");
-                String answer = scanner.nextLine().trim().toLowerCase();
-                if (!answer.equals("д") && !answer.equals("да") && !answer.equals("y") && !answer.equals("yes")) {
-                    playing = false;
+            // Создание зависимостей
+            WordleWordMatcher matcher = new WordleWordMatcher();
+            statsClient = new WordleStatisticsClient(serverUrl);
+
+            Scanner scanner = new Scanner(System.in);
+            System.out.println("Добро пожаловать в игру Wordle!");
+
+            boolean running = true;
+            while (running) {
+                System.out.println("\n--- МЕНЮ ---");
+                System.out.println("1. Начать новую игру");
+                System.out.println("2. Топ-10 игроков");
+                System.out.println("3. Статистика игрока");
+                System.out.println("4. Выход");
+                System.out.print("Ваш выбор: ");
+
+                String choice = scanner.nextLine().trim();
+                switch (choice) {
+                    case "1":
+                        WordleGame game = new WordleGame(dictionary, matcher);
+                        runGame(game, scanner);
+                        break;
+                    case "2":
+                        String topJson = statsClient.fetchTopPlayers();
+                        if (topJson != null) {
+                            printTopPlayers(topJson);
+                        } else {
+                            System.out.println("Не удалось получить топ игроков.");
+                        }
+                        break;
+                    case "3":
+                        System.out.print("Введите никнейм: ");
+                        String nickname = scanner.nextLine().trim();
+                        if (nickname.isBlank()) nickname = "Аноним";
+                        String statsJson = statsClient.fetchPlayerStats(nickname);
+                        if (statsJson != null) {
+                            printPlayerStats(statsJson);
+                        } else {
+                            System.out.println("Не удалось получить статистику.");
+                        }
+                        break;
+                    case "4":
+                        System.out.println("До свидания!");
+                        running = false;
+                        break;
+                    default:
+                        System.out.println("Неверный выбор. Пожалуйста, введите 1, 2, 3 или 4.");
                 }
             }
 
             log.println("=== Игра Wordle завершена ===");
-            System.out.println("Спасибо за игру!");
-        } catch (IOException e) {
-            System.err.println("Не удалось создать лог-файл. Подробности в консоли.");
-            e.printStackTrace();
         } catch (Exception e) {
-            System.err.println("Произошла непредвиденная ошибка. Подробности в логе.");
+            System.err.println("Критическая ошибка: " + e.getMessage());
+            if (log != null) log.println("Критическая ошибка: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -81,24 +107,12 @@ public class Wordle {
      *
      * @param game    текущая игра
      * @param scanner сканнер для ввода с клавиатуры
-     * @param log     логгер для записи событий
      */
-    private static void runGame(WordleGame game, Scanner scanner, PrintWriter log) {
+    private static void runGame(WordleGame game, Scanner scanner) {
         while (!game.isFinished()) {
             System.out.println("\nОсталось попыток: " + game.getStepsLeft());
-            System.out.print("Введите слово (или /top, /stats, /exit): ");
+            System.out.print("Введите слово (для подсказки нажмите Enter): ");
             String input = scanner.nextLine().trim().toLowerCase().replace('ё', 'е');
-
-            if (input.equals("/exit")) {
-                System.out.println("Выход из игры. До свидания!");
-                log.println("Игрок завершил игру досрочно.");
-                System.exit(0);
-            }
-
-            if (input.startsWith("/")) {
-                handleCommand(input, scanner, log);
-                continue;
-            }
 
             if (input.isEmpty()) {
                 try {
@@ -119,21 +133,23 @@ public class Wordle {
 
                 if (game.isWin()) {
                     System.out.println("\nПоздравляем! Вы угадали слово \"" + game.getAnswer() + "\"!");
-                    log.println("Игрок победил за " + game.getStepsUsed() + " ходов.");
-                    sendGameResult(game, true, scanner, log);
+                    System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
+                    log.println("Игрок победил за " + game.getStepsUsed() + " ходов, использовано подсказок: " + game.getHintsUsed());
+                    sendGameResult(game, true, scanner);
                 }
-            } catch (GameException e) {
+            } catch (Exception e) {
                 System.out.println("Ошибка: " + e.getMessage());
                 log.println("Ошибка ввода: " + e.getMessage() + " (" + input + ")");
             }
         }
-
         if (!game.isWin()) {
             System.out.println("\nВы проиграли. Загаданное слово: " + game.getAnswer());
-            log.println("Игрок проиграл.");
-            sendGameResult(game, false, scanner, log);
+            System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
+            log.println("Игрок проиграл, использовано подсказок: " + game.getHintsUsed());
+            sendGameResult(game, false, scanner);
         }
-        finishGame(game, log);
+        finishGame(game);
+        System.out.println("\nВозврат в главное меню.");
     }
 
     /**
@@ -142,9 +158,8 @@ public class Wordle {
      * @param game    текущая игра
      * @param win     флаг победы (true - победа, false - поражение)
      * @param scanner сканнер для ввода никнейма
-     * @param log     логгер для записи событий
      */
-    private static void sendGameResult(WordleGame game, boolean win, Scanner scanner, PrintWriter log) {
+    private static void sendGameResult(WordleGame game, boolean win, Scanner scanner) {
         String nickname = lastNickname;
         if (nickname == null) {
             System.out.print("Введите ваш никнейм для сохранения статистики: ");
@@ -162,141 +177,18 @@ public class Wordle {
             }
         }
 
-        int stepsUsed = game.getStepsUsed();
-        int hintsUsed = game.getHintsUsed();
-        String json = String.format("{\"nickname\": \"%s\", \"win\": %b, \"steps\": %d, \"hintsUsed\": %d}",
-                escapeJson(nickname), win, stepsUsed, hintsUsed);
-
-        try {
-            HttpRequest postRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(SERVER_URL + "/result"))
-                    .timeout(Duration.ofSeconds(5))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-            HttpResponse<String> postResponse = HTTP_CLIENT.send(postRequest, HttpResponse.BodyHandlers.ofString());
-            if (postResponse.statusCode() == 200) {
-                System.out.println("Статистика сохранена!");
-                log.println("Статистика отправлена для " + nickname + " (win=" + win + ", steps=" + stepsUsed + ", hintsUsed=" + hintsUsed + ")");
-                requestTopPlayers(log);
-            } else {
-                System.out.println("Не удалось сохранить статистику (код " + postResponse.statusCode() + ")");
-                log.println("Ошибка отправки статистики: " + postResponse.statusCode());
+        boolean success = statsClient.sendGameResult(nickname, win, game.getStepsUsed(), game.getHintsUsed());
+        if (success) {
+            System.out.println("Статистика сохранена!");
+            log.println("Статистика отправлена для " + nickname);
+            String topJson = statsClient.fetchTopPlayers();
+            if (topJson != null) {
+                printTopPlayers(topJson);
             }
-        } catch (Exception e) {
-            System.out.println("Ошибка связи с сервером: " + e.getMessage());
-            log.println("Сетевая ошибка: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Обрабатывает введённые команды пользователя.
-     *
-     * @param cmd     введённая команда (начинается с '/')
-     * @param scanner сканнер для ввода параметров команды
-     * @param log     логгер для записи событий
-     */
-    private static void handleCommand(String cmd, Scanner scanner, PrintWriter log) {
-        if (cmd.equals("/top")) {
-            requestTopPlayers(log);
-        } else if (cmd.equals("/stats")) {
-            System.out.print("Введите никнейм для статистики: ");
-            String nickname = scanner.nextLine().trim();
-            if (nickname.isBlank()) nickname = "Аноним";
-            requestPlayerStats(nickname, log);
         } else {
-            System.out.println("Неизвестная команда. Доступны: /top, /stats, /exit");
+            System.out.println("Не удалось сохранить статистику.");
+            log.println("Ошибка отправки статистики.");
         }
-    }
-
-    /**
-     * Запрашивает у сервера топ-10 игроков и выводит результат в консоль.
-     *
-     * @param log логгер для записи событий
-     */
-    private static void requestTopPlayers(PrintWriter log) {
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(SERVER_URL + "/top"))
-                    .timeout(Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                String body = response.body();
-                System.out.println("\n=== Топ-10 игроков ===");
-                printTopPlayers(body);
-                log.println("Топ игроков получен");
-            } else {
-                System.out.println("Не удалось получить топ игроков (код " + response.statusCode() + ")");
-            }
-        } catch (Exception e) {
-            System.out.println("Ошибка связи с сервером: " + e.getMessage());
-            log.println("Ошибка получения топа: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Запрашивает у сервера статистику конкретного игрока и выводит результат в консоль.
-     *
-     * @param nickname никнейм игрока
-     * @param log      логгер для записи событий
-     */
-    private static void requestPlayerStats(String nickname, PrintWriter log) {
-        try {
-            String url = SERVER_URL + "/stats?nickname=" + URLEncoder.encode(nickname, StandardCharsets.UTF_8);
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofSeconds(5))
-                    .GET()
-                    .build();
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                System.out.println("\n=== Статистика игрока ===");
-                printPlayerStats(response.body());
-                log.println("Статистика для " + nickname + " получена");
-            } else {
-                System.out.println("Не удалось получить статистику (код " + response.statusCode() + ")");
-            }
-        } catch (Exception e) {
-            System.out.println("Ошибка связи с сервером: " + e.getMessage());
-            log.println("Ошибка получения статистики: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Выводит в консоль статистику игрока из JSON-строки.
-     *
-     * @param json JSON-строка с данными игрока
-     */
-    private static void printPlayerStats(String json) {
-        String nickname = extractJsonValue(json, "nickname");
-        String wins = extractJsonValue(json, "wins");
-        String losses = extractJsonValue(json, "losses");
-        String hints = extractJsonValue(json, "hintsUsed");
-        String avgSteps = extractJsonValue(json, "avgSteps");
-        String winRate = extractJsonValue(json, "winRate");
-        if (nickname != null && wins != null) {
-            System.out.printf("Игрок: %s%nПобед: %s%nПоражений: %s%nИспользовано подсказок: %s%nСреднее число ходов: %s%nПроцент побед: %s%%%n",
-                    nickname, wins, losses, hints, avgSteps, winRate);
-        } else {
-            System.out.println("Не удалось разобрать статистику.");
-        }
-    }
-
-    /**
-     * Записывает в лог финальную информацию об игре.
-     *
-     * @param game завершённая игра
-     * @param log  логгер
-     */
-    private static void finishGame(WordleGame game, PrintWriter log) {
-        log.println("Игра завершена. Победа: " + game.isWin());
-        if (game.getHintsUsed() > 0) {
-            log.println("Игрок использовал подсказок: " + game.getHintsUsed());
-        }
-        log.println("История ходов: " + game.getGuesses());
-        log.println("Подсказки: " + game.getHints());
     }
 
     /**
@@ -366,7 +258,26 @@ public class Wordle {
             }
         } catch (Exception e) {
             System.out.println("Ошибка вывода топа: " + e.getMessage());
-            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Выводит в консоль статистику игрока из JSON-строки.
+     *
+     * @param json JSON-строка с данными игрока
+     */
+    private static void printPlayerStats(String json) {
+        String nickname = extractJsonValue(json, "nickname");
+        String wins = extractJsonValue(json, "wins");
+        String losses = extractJsonValue(json, "losses");
+        String hints = extractJsonValue(json, "hintsUsed");
+        String avgSteps = extractJsonValue(json, "avgSteps");
+        String winRate = extractJsonValue(json, "winRate");
+        if (nickname != null && wins != null) {
+            System.out.printf("Игрок: %s%nПобед: %s%nПоражений: %s%nИспользовано подсказок: %s%nСреднее число ходов: %s%nПроцент побед: %s%%%n",
+                    nickname, wins, losses, hints, avgSteps, winRate);
+        } else {
+            System.out.println("Не удалось разобрать статистику.");
         }
     }
 
@@ -406,12 +317,16 @@ public class Wordle {
     }
 
     /**
-     * Экранирует специальные символы для использования в JSON.
+     * Записывает в лог финальную информацию об игре.
      *
-     * @param s исходная строка
-     * @return экранированная строка
+     * @param game завершённая игра
      */
-    private static String escapeJson(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    private static void finishGame(WordleGame game) {
+        log.println("Игра завершена. Победа: " + game.isWin());
+        if (game.getHintsUsed() > 0) {
+            log.println("Игрок использовал подсказок: " + game.getHintsUsed());
+        }
+        log.println("История ходов: " + game.getGuesses());
+        log.println("Подсказки: " + game.getHints());
     }
 }

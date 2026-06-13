@@ -26,7 +26,7 @@ class WordleDictionaryLoaderTest {
         Files.write(dictFile, List.of("аббат", "вагон", "ухарь"));
 
         WordleDictionary dictionary = loader.load(dictFile.toString());
-        List<String> words = dictionary.getWords();
+        List<String> words = dictionary.getAllWords();
 
         assertEquals(3, words.size());
         assertTrue(words.contains("аббат"));
@@ -53,7 +53,7 @@ class WordleDictionaryLoaderTest {
         Files.write(dictFile, List.of("АББАТ", "Вагон", "УХАРЬ"));
 
         WordleDictionary dictionary = loader.load(dictFile.toString());
-        List<String> words = dictionary.getWords();
+        List<String> words = dictionary.getAllWords();
 
         assertTrue(words.contains("аббат"));
         assertTrue(words.contains("вагон"));

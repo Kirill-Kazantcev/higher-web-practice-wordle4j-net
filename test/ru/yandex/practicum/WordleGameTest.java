@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.exception.GameException;
 import ru.yandex.practicum.exception.InvalidWordFormatException;
 import ru.yandex.practicum.exception.WordNotFoundInDictionaryException;
+import ru.yandex.practicum.game.WordleWordMatcher;
 
 import java.util.List;
 
@@ -12,12 +13,14 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class WordleGameTest {
     private WordleDictionary dictionary;
+    private WordleWordMatcher matcher;
     private WordleGame game;
 
     @BeforeEach
     void setUp() {
         dictionary = new WordleDictionary(List.of("аббат", "вагон", "ухарь", "сосна"));
-        game = new WordleGame(dictionary, "аббат");
+        matcher = new WordleWordMatcher();
+        game = new WordleGame(dictionary, matcher, "аббат");
     }
 
     @Test
@@ -68,7 +71,7 @@ class WordleGameTest {
     void getHintWord_shouldReturnPossibleWord() throws GameException {
         String hintWord = game.getHintWord();
         assertNotNull(hintWord);
-        assertTrue(dictionary.getWords().contains(hintWord));
+        assertTrue(dictionary.getAllWords().contains(hintWord));
         assertEquals(1, game.getHintsUsed());
     }
 

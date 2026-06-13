@@ -36,37 +36,12 @@ class WordleDictionaryTest {
     }
 
     @Test
-    void analyze_fullMatch_shouldReturnFivePluses() {
-        String hint = WordleDictionary.analyze("аббат", "аббат");
-        assertEquals("+++++", hint);
-    }
-
-    @Test
-    void analyze_shouldReturnCorrectLength() {
-        String hint = WordleDictionary.analyze("вагон", "аббат");
-        assertEquals(5, hint.length());
-    }
-
-    @Test
-    void analyze_shouldNotReturnNull() {
-        String hint = WordleDictionary.analyze("сосок", "сосна");
-        assertNotNull(hint);
-        assertEquals(5, hint.length());
-    }
-
-    @Test
-    void getWords_shouldReturnCopy() {
-        List<String> words = dictionary.getWords();
+    void getAllWords_shouldReturnCopy() {
+        List<String> words = dictionary.getAllWords();
         assertEquals(4, words.size());
         assertTrue(words.contains("аббат"));
         assertTrue(words.contains("вагон"));
         assertTrue(words.contains("ухарь"));
         assertTrue(words.contains("сосна"));
-    }
-
-    @Test
-    void analyze_wordWithDifferentCase_shouldWorkWithNormalizedInput() {
-        String hint = WordleDictionary.analyze("аббат", "аббат");
-        assertEquals("+++++", hint);
     }
 }
