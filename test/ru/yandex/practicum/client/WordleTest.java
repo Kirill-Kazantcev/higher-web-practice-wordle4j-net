@@ -1,4 +1,4 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -7,7 +7,7 @@ class WordleTest {
     @Test
     void testMainMethodExists() {
         try {
-            Class<?> clazz = Class.forName("ru.yandex.practicum.Wordle");
+            Class<?> clazz = Class.forName("ru.yandex.practicum.client.Wordle");
             clazz.getMethod("main", String[].class);
             assertTrue(true);
         } catch (Exception e) {

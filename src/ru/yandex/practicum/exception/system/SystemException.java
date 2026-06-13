@@ -1,4 +1,4 @@
-package ru.yandex.practicum.exception;
+package ru.yandex.practicum.exception.system;
 
 /**
  * Исключение для системных ошибок (ввод-вывод, некорректное состояние).

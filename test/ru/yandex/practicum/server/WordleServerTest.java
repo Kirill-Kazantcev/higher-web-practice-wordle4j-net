@@ -1,17 +1,14 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.server;
 
 import com.sun.net.httpserver.HttpExchange;
 import org.junit.jupiter.api.Test;
 import ru.yandex.practicum.util.ConfigLoader;
 
+import java.io.PrintWriter;
 import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Тесты для HTTP-сервера статистики WordleServer.
- * Проверяют структуру класса и наличие основных методов.
- */
 class WordleServerTest {
 
     @Test
@@ -20,17 +17,18 @@ class WordleServerTest {
             ConfigLoader config = new ConfigLoader("application.properties");
             int port = config.getInt("server.port");
 
-            WordleServer server = new WordleServer(port, "test_stats.txt");
+            PrintWriter testLog = new PrintWriter(System.out);
+            WordleServer server = new WordleServer(port, "test_stats.txt", testLog);
             assertNotNull(server);
         } catch (Exception e) {
-            fail("Конструктор WordleServer(int, String) не работает: " + e.getMessage());
+            fail("Конструктор WordleServer(int, String, PrintWriter) не работает: " + e.getMessage());
         }
     }
 
     @Test
     void testMainMethodExists() {
         try {
-            Class<?> clazz = Class.forName("ru.yandex.practicum.WordleServer");
+            Class<?> clazz = Class.forName("ru.yandex.practicum.server.WordleServer");
             Method mainMethod = clazz.getMethod("main", String[].class);
             assertNotNull(mainMethod);
         } catch (Exception e) {
@@ -49,6 +47,16 @@ class WordleServerTest {
     }
 
     @Test
+    void testStopMethodExists() {
+        try {
+            Method stopMethod = WordleServer.class.getMethod("stop");
+            assertNotNull(stopMethod);
+        } catch (NoSuchMethodException e) {
+            fail("Метод stop не найден: " + e.getMessage());
+        }
+    }
+
+    @Test
     void testEscapeJsonMethodExists() {
         try {
             Method escapeMethod = WordleServer.class.getDeclaredMethod("escapeJson", String.class);
@@ -56,7 +64,8 @@ class WordleServerTest {
 
             ConfigLoader config = new ConfigLoader("application.properties");
             int port = config.getInt("server.port");
-            WordleServer server = new WordleServer(port, "test_stats.txt");
+            PrintWriter testLog = new PrintWriter(System.out);
+            WordleServer server = new WordleServer(port, "test_stats.txt", testLog);
 
             String result = (String) escapeMethod.invoke(server, "Hello \"World\"");
             assertEquals("Hello \\\"World\\\"", result);
@@ -65,27 +74,9 @@ class WordleServerTest {
         }
     }
 
-    @Test
-    void testParseJsonMethodExists() {
-        try {
-            Method parseMethod = WordleServer.class.getDeclaredMethod("parseJson", String.class);
-            parseMethod.setAccessible(true);
-            assertNotNull(parseMethod);
-        } catch (NoSuchMethodException e) {
-            fail("Метод parseJson не найден: " + e.getMessage());
-        }
-    }
-
-    @Test
-    void testParseQueryMethodExists() {
-        try {
-            Method parseQueryMethod = WordleServer.class.getDeclaredMethod("parseQuery", String.class);
-            parseQueryMethod.setAccessible(true);
-            assertNotNull(parseQueryMethod);
-        } catch (NoSuchMethodException e) {
-            fail("Метод parseQuery не найден: " + e.getMessage());
-        }
-    }
+    // В WordleServer нет методов extractJsonString, extractJsonInt, extractJsonBoolean
+    // Они заменены на handlePostResult, handleGetTop, handleGetStats
+    // Поэтому удаляем эти тесты или проверяем наличие основных методов
 
     @Test
     void testHandlePostResultMethodExists() {

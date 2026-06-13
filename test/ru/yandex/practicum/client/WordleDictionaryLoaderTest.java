@@ -1,9 +1,10 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import ru.yandex.practicum.exception.SystemException;
+import ru.yandex.practicum.exception.io.DictionaryEmptyException;
+import ru.yandex.practicum.exception.io.DictionaryFileNotFoundException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,7 +22,8 @@ class WordleDictionaryLoaderTest {
     }
 
     @Test
-    void load_withValidFiveLetterWords_shouldLoad(@TempDir Path tempDir) throws IOException {
+    void load_withValidFiveLetterWords_shouldLoad(@TempDir Path tempDir)
+            throws DictionaryFileNotFoundException, DictionaryEmptyException, IOException {
         Path dictFile = tempDir.resolve("words.txt");
         Files.write(dictFile, List.of("аббат", "вагон", "ухарь"));
 
@@ -35,20 +37,21 @@ class WordleDictionaryLoaderTest {
     }
 
     @Test
-    void load_emptyFile_shouldThrowSystemException(@TempDir Path tempDir) throws IOException {
+    void load_emptyFile_shouldThrowDictionaryEmptyException(@TempDir Path tempDir) throws IOException {
         Path dictFile = tempDir.resolve("empty.txt");
         Files.write(dictFile, List.of());
 
-        assertThrows(SystemException.class, () -> loader.load(dictFile.toString()));
+        assertThrows(DictionaryEmptyException.class, () -> loader.load(dictFile.toString()));
     }
 
     @Test
-    void load_missingFile_shouldThrowSystemException() {
-        assertThrows(SystemException.class, () -> loader.load("non_existent_file.txt"));
+    void load_missingFile_shouldThrowDictionaryFileNotFoundException() {
+        assertThrows(DictionaryFileNotFoundException.class, () -> loader.load("non_existent_file.txt"));
     }
 
     @Test
-    void load_withMixedCase_shouldNormalizeToLowercase(@TempDir Path tempDir) throws IOException {
+    void load_withMixedCase_shouldNormalizeToLowercase(@TempDir Path tempDir)
+            throws DictionaryFileNotFoundException, DictionaryEmptyException, IOException {
         Path dictFile = tempDir.resolve("words.txt");
         Files.write(dictFile, List.of("АББАТ", "Вагон", "УХАРЬ"));
 
@@ -61,7 +64,8 @@ class WordleDictionaryLoaderTest {
     }
 
     @Test
-    void load_withYoReplacement_shouldReplaceYoWithE(@TempDir Path tempDir) throws IOException {
+    void load_withYoReplacement_shouldReplaceYoWithE(@TempDir Path tempDir)
+            throws DictionaryFileNotFoundException, DictionaryEmptyException, IOException {
         Path dictFile = tempDir.resolve("words.txt");
         Files.write(dictFile, List.of("ёжики", "ёлка"));
 
@@ -74,7 +78,8 @@ class WordleDictionaryLoaderTest {
     }
 
     @Test
-    void load_withValidYoWords_shouldReplaceAndLoad(@TempDir Path tempDir) throws IOException {
+    void load_withValidYoWords_shouldReplaceAndLoad(@TempDir Path tempDir)
+            throws DictionaryFileNotFoundException, DictionaryEmptyException, IOException {
         Path dictFile = tempDir.resolve("words.txt");
         // Правильные слова длины 5 с буквой 'ё'
         Files.write(dictFile, List.of("сёгун", "тёлка", "пёсий"));
@@ -89,7 +94,8 @@ class WordleDictionaryLoaderTest {
     }
 
     @Test
-    void load_withInvalidCharacters_shouldSkipWord(@TempDir Path tempDir) throws IOException {
+    void load_withInvalidCharacters_shouldSkipWord(@TempDir Path tempDir)
+            throws DictionaryFileNotFoundException, DictionaryEmptyException, IOException {
         Path dictFile = tempDir.resolve("words.txt");
         Files.write(dictFile, List.of("аббат", "hello", "вагон", "12345"));
 

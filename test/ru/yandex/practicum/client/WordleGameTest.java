@@ -1,10 +1,11 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import ru.yandex.practicum.exception.GameException;
-import ru.yandex.practicum.exception.InvalidWordFormatException;
-import ru.yandex.practicum.exception.WordNotFoundInDictionaryException;
+import ru.yandex.practicum.exception.game.GameException;
+import ru.yandex.practicum.exception.game.InvalidWordLengthException;
+import ru.yandex.practicum.exception.game.WordNotFoundInDictionaryException;
+import ru.yandex.practicum.exception.system.GameStateException;
 import ru.yandex.practicum.game.WordleWordMatcher;
 
 import java.util.List;
@@ -42,9 +43,9 @@ class WordleGameTest {
     }
 
     @Test
-    void makeMove_invalidWordLength_shouldThrowInvalidWordFormatException() {
-        assertThrows(InvalidWordFormatException.class, () -> game.makeMove("привет"));
-        assertThrows(InvalidWordFormatException.class, () -> game.makeMove("кот"));
+    void makeMove_invalidWordLength_shouldThrowInvalidWordLengthException() {
+        assertThrows(InvalidWordLengthException.class, () -> game.makeMove("привет"));
+        assertThrows(InvalidWordLengthException.class, () -> game.makeMove("кот"));
     }
 
     @Test
@@ -52,10 +53,11 @@ class WordleGameTest {
         assertThrows(WordNotFoundInDictionaryException.class, () -> game.makeMove("пенёк"));
     }
 
+    // ИСПРАВЛЕНО: ожидаем GameStateException вместо IllegalStateException
     @Test
-    void makeMove_afterGameFinished_shouldThrowIllegalStateException() throws Exception {
+    void makeMove_afterGameFinished_shouldThrowGameStateException() throws Exception {
         game.makeMove("аббат");
-        assertThrows(IllegalStateException.class, () -> game.makeMove("вагон"));
+        assertThrows(GameStateException.class, () -> game.makeMove("вагон"));
     }
 
     @Test

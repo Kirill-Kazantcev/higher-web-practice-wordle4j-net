@@ -1,9 +1,9 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import ru.yandex.practicum.exception.InvalidWordFormatException;
-import ru.yandex.practicum.exception.WordNotFoundInDictionaryException;
+import ru.yandex.practicum.exception.game.InvalidWordLengthException;
+import ru.yandex.practicum.exception.game.WordNotFoundInDictionaryException;
 
 import java.util.List;
 
@@ -25,9 +25,9 @@ class WordleDictionaryTest {
 
     @Test
     void validateWord_invalidLength_shouldThrowInvalidWordFormatException() {
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("привет"));
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("кот"));
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("елка"));
+        assertThrows(InvalidWordLengthException.class, () -> dictionary.validate("привет"));
+        assertThrows(InvalidWordLengthException.class, () -> dictionary.validate("кот"));
+        assertThrows(InvalidWordLengthException.class, () -> dictionary.validate("елка"));
     }
 
     @Test

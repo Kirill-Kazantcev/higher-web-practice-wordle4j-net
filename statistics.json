@@ -1,0 +1,68 @@
+{
+  "Галина": {
+    "wins": 1,
+    "losses": 1,
+    "hintsUsed": 3,
+    "totalSteps": 6
+  },
+  "Елена": {
+    "wins": 0,
+    "losses": 1,
+    "hintsUsed": 1,
+    "totalSteps": 3
+  },
+  "Кирилл": {
+    "wins": 25,
+    "losses": 1,
+    "hintsUsed": 18,
+    "totalSteps": 34
+  },
+  "Захар": {
+    "wins": 0,
+    "losses": 2,
+    "hintsUsed": 5,
+    "totalSteps": 5
+  },
+  "Борис": {
+    "wins": 1,
+    "losses": 0,
+    "hintsUsed": 2,
+    "totalSteps": 5
+  },
+  "Анна": {
+    "wins": 10,
+    "losses": 5,
+    "hintsUsed": 11,
+    "totalSteps": 20
+  },
+  "Виктор": {
+    "wins": 1,
+    "losses": 0,
+    "hintsUsed": 1,
+    "totalSteps": 4
+  },
+  "Иван": {
+    "wins": 1,
+    "losses": 0,
+    "hintsUsed": 4,
+    "totalSteps": 4
+  },
+  "Ирина": {
+    "wins": 0,
+    "losses": 0,
+    "hintsUsed": 0,
+    "totalSteps": 0
+  },
+  "Дмитрий": {
+    "wins": 9,
+    "losses": 2,
+    "hintsUsed": 0,
+    "totalSteps": 20
+  },
+  "Жанна": {
+    "wins": 0,
+    "losses": 1,
+    "hintsUsed": 3,
+    "totalSteps": 6
+  }
+}

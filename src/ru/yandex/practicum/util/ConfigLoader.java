@@ -22,9 +22,4 @@ public class ConfigLoader {
     public int getInt(String key) {
         return Integer.parseInt(getString(key));
     }
-
-    @SuppressWarnings("unused")
-    public boolean getBoolean(String key) {
-        return Boolean.parseBoolean(getString(key));
-    }
 }

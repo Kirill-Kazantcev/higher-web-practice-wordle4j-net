@@ -1,44 +1,41 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
-import ru.yandex.practicum.exception.GameException;
+import ru.yandex.practicum.exception.game.GameException;
+import ru.yandex.practicum.exception.io.DictionaryEmptyException;
+import ru.yandex.practicum.exception.io.DictionaryFileNotFoundException;
 import ru.yandex.practicum.game.WordleWordMatcher;
 import ru.yandex.practicum.net.HttpStatisticsClient;
-import ru.yandex.practicum.net.StatisticsClient;
-import ru.yandex.practicum.util.ConfigLoader;
 import ru.yandex.practicum.util.JsonUtils;
 
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Scanner;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class Wordle {
-    private static final Logger LOGGER = Logger.getLogger(Wordle.class.getName());
     private static PrintWriter log;
-    private static StatisticsClient statsClient;
+    private static HttpStatisticsClient httpClient;
     private static String lastNickname = null;
 
     public static void main(String[] args) {
         try {
-            ConfigLoader config = new ConfigLoader("application.properties");
-            String dictFile = config.getString("dictionary.path");
-            String serverUrl = config.getString("server.url");
-            String logFile = config.getString("log.file");
-
-            log = new PrintWriter(new FileWriter(logFile, true), true);
+            log = new PrintWriter(new FileWriter(WordleConstants.LOG_FILE, true), true);
             log.println("=== Игра Wordle запущена ===");
 
             WordleDictionaryLoader loader = new WordleDictionaryLoader();
-            WordleDictionary dictionary = loader.load(dictFile);
+            WordleDictionary dictionary = loader.load(WordleConstants.DICTIONARY_FILE);
             log.println("Словарь загружен. Количество слов: " + dictionary.size());
 
             WordleWordMatcher matcher = new WordleWordMatcher();
-            statsClient = new HttpStatisticsClient(serverUrl);
+            httpClient = new HttpStatisticsClient();
 
-            Scanner scanner = new Scanner(System.in);
+            Scanner scanner = new Scanner(System.in, StandardCharsets.UTF_8);
             System.out.println("Добро пожаловать в игру Wordle!");
+            System.out.println("Сервер статистики: " + WordleConstants.SERVER_HOST + ":" + WordleConstants.SERVER_PORT);
+            System.out.println("Угадайте слово из 5 букв. У вас 6 попыток.");
+            System.out.println("Пустой ввод — подсказка.");
 
             boolean running = true;
             while (running) {
@@ -56,7 +53,7 @@ public class Wordle {
                         runGame(game, scanner);
                         break;
                     case "2":
-                        String topJson = statsClient.fetchTopPlayers();
+                        String topJson = httpClient.fetchTopPlayers();
                         if (topJson != null) {
                             printTopPlayers(topJson);
                         } else {
@@ -64,14 +61,17 @@ public class Wordle {
                         }
                         break;
                     case "3":
-                        System.out.print("Введите никнейм: ");
-                        String nickname = scanner.nextLine().trim();
-                        if (nickname.isBlank()) nickname = "Аноним";
-                        String statsJson = statsClient.fetchPlayerStats(nickname);
+                        System.out.print("Введите никнейм для просмотра статистики: ");
+                        String statsNickname = scanner.nextLine().trim();
+                        if (statsNickname.isBlank()) {
+                            System.out.println("Никнейм не указан.");
+                            break;
+                        }
+                        String statsJson = httpClient.fetchPlayerStats(statsNickname);
                         if (statsJson != null) {
                             printPlayerStats(statsJson);
                         } else {
-                            System.out.println("Не удалось получить статистику.");
+                            System.out.println("Не удалось получить статистику для игрока: " + statsNickname);
                         }
                         break;
                     case "4":
@@ -83,13 +83,29 @@ public class Wordle {
                 }
             }
             log.println("=== Игра Wordle завершена ===");
+            log.close();
 
+        } catch (DictionaryFileNotFoundException e) {
+            System.err.println("Ошибка: файл словаря не найден - " + e.getMessage());
+            if (log != null) {
+                log.println("Ошибка: файл словаря не найден - " + e.getMessage());
+            }
+        } catch (DictionaryEmptyException e) {
+            System.err.println("Ошибка: словарь пуст - " + e.getMessage());
+            if (log != null) {
+                log.println("Ошибка: словарь пуст - " + e.getMessage());
+            }
+        } catch (IOException e) {
+            System.err.println("Ошибка ввода-вывода: " + e.getMessage());
+            if (log != null) {
+                log.println("Ошибка ввода-вывода: " + e.getMessage());
+            }
         } catch (Exception e) {
             System.err.println("Критическая ошибка: " + e.getMessage());
             if (log != null) {
                 log.println("Критическая ошибка: " + e.getMessage());
+                e.printStackTrace(log);
             }
-            LOGGER.log(Level.SEVERE, "Критическая ошибка", e);
         }
     }
 
@@ -101,10 +117,12 @@ public class Wordle {
 
             if (input.isEmpty()) {
                 try {
-                    System.out.println("Подсказка: " + game.getHintWord());
-                    log.println("Игрок запросил подсказку.");
+                    String hint = game.getHintWord();
+                    System.out.println("Подсказка: " + hint);
+                    log.println("Игрок запросил подсказку: " + hint);
                 } catch (GameException e) {
                     System.out.println("Не удалось получить подсказку: " + e.getMessage());
+                    log.println("Ошибка получения подсказки: " + e.getMessage());
                 }
                 continue;
             }
@@ -112,35 +130,39 @@ public class Wordle {
             try {
                 String hint = game.makeMove(input);
                 System.out.println("Результат: " + hint);
-                log.println("Ход: " + input + " -> " + hint + " (осталось попыток: " + game.getStepsLeft() + ")");
+                log.println("Ход: " + input + " -> " + hint);
 
                 if (game.isWin()) {
                     System.out.println("\nПоздравляем! Вы угадали слово \"" + game.getAnswer() + "\"!");
                     System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
                     log.println("Игрок победил за " + game.getStepsUsed() + " ходов, подсказок: " + game.getHintsUsed());
-                    sendGameResult(game, true, scanner);
+                    sendGameResult(game, scanner);
+                    break;
                 }
-            } catch (Exception e) {
+            } catch (GameException e) {
                 System.out.println("Ошибка: " + e.getMessage());
-                log.println("Ошибка ввода: " + e.getMessage() + " (" + input + ")");
+                log.println("Ошибка ввода: " + e.getMessage());
             }
         }
+
         if (!game.isWin()) {
             System.out.println("\nВы проиграли. Загаданное слово: " + game.getAnswer());
             System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
             log.println("Игрок проиграл, подсказок: " + game.getHintsUsed());
-            sendGameResult(game, false, scanner);
         }
-        finishGame(game);
+
+        log.println("Игра завершена. Победа: " + game.isWin());
         System.out.println("\nВозврат в главное меню.");
     }
 
-    private static void sendGameResult(WordleGame game, boolean win, Scanner scanner) {
+    private static void sendGameResult(WordleGame game, Scanner scanner) {
         String nickname = lastNickname;
         if (nickname == null) {
             System.out.print("Введите ваш никнейм для сохранения статистики: ");
             nickname = scanner.nextLine().trim();
-            if (nickname.isBlank()) nickname = "Аноним";
+            if (nickname.isBlank()) {
+                nickname = "Аноним";
+            }
             lastNickname = nickname;
         } else {
             System.out.print("Сохранить статистику для " + nickname + "? (д/н): ");
@@ -148,48 +170,56 @@ public class Wordle {
             if (!confirm.equals("д") && !confirm.equals("да") && !confirm.equals("y") && !confirm.equals("yes")) {
                 System.out.print("Введите другой никнейм: ");
                 nickname = scanner.nextLine().trim();
-                if (nickname.isBlank()) nickname = "Аноним";
+                if (nickname.isBlank()) {
+                    nickname = "Аноним";
+                }
                 lastNickname = nickname;
             }
         }
 
-        if (statsClient.sendGameResult(nickname, win, game.getStepsUsed(), game.getHintsUsed())) {
+        boolean success = httpClient.sendGameResult(nickname, true, game.getStepsUsed(), game.getHintsUsed());
+        if (success) {
             System.out.println("Статистика сохранена!");
             log.println("Статистика отправлена для " + nickname);
-            String topJson = statsClient.fetchTopPlayers();
-            if (topJson != null) printTopPlayers(topJson);
+
+            String topJson = httpClient.fetchTopPlayers();
+            if (topJson != null) {
+                printTopPlayers(topJson);
+            }
         } else {
             System.out.println("Не удалось сохранить статистику.");
-            log.println("Ошибка отправки статистики.");
+            log.println("Ошибка отправки статистики для " + nickname);
         }
     }
 
     private static void printTopPlayers(String json) {
-        List<JsonUtils.TopPlayer> top = JsonUtils.parseTopPlayers(json);
+        List<JsonUtils.TopPlayerEntry> top = JsonUtils.parseTopResponse(json);
         if (top.isEmpty()) {
             System.out.println("Нет данных для отображения");
             return;
         }
-        int rank = 1;
-        for (JsonUtils.TopPlayer p : top) {
-            System.out.printf("%d. %s - %d побед (%.1f%%)%n", rank++, p.nickname, p.wins, p.winRate);
+        System.out.println("\n=== ТОП ИГРОКОВ ===");
+        for (JsonUtils.TopPlayerEntry entry : top) {
+            String winsWord = entry.wins() == 1 ? "победа" : "побед";
+            System.out.printf("%d. %s - %d %s%n", entry.rank(), entry.nickname(), entry.wins(), winsWord);
         }
     }
 
     private static void printPlayerStats(String json) {
-        JsonUtils.PlayerStats ps = JsonUtils.parsePlayerStats(json);
-        if (ps == null) {
+        JsonUtils.PlayerStats stats = JsonUtils.parsePlayerStats(json);
+        if (stats == null) {
             System.out.println("Не удалось разобрать статистику.");
             return;
         }
-        System.out.printf("Игрок: %s%nПобед: %d%nПоражений: %d%nПодсказок: %d%nСреднее число ходов: %.2f%nПроцент побед: %.1f%%%n",
-                ps.nickname, ps.wins, ps.losses, ps.hintsUsed, ps.avgSteps, ps.winRate);
-    }
 
-    private static void finishGame(WordleGame game) {
-        log.println("Игра завершена. Победа: " + game.isWin());
-        if (game.getHintsUsed() > 0) log.println("Использовано подсказок: " + game.getHintsUsed());
-        log.println("История ходов: " + game.getGuesses());
-        log.println("Подсказки: " + game.getHints());
+        System.out.println("\n=== СТАТИСТИКА ИГРОКА ===");
+        System.out.printf("Игрок: %s%n", stats.nickname());
+        System.out.printf("Побед: %d%n", stats.wins());
+        System.out.printf("Поражений: %d%n", stats.losses());
+        System.out.printf("Всего игр: %d%n", stats.wins() + stats.losses());
+        System.out.printf("Использовано подсказок: %d%n", stats.hintsUsed());
+        System.out.printf("Среднее число ходов: %.2f%n", stats.avgSteps());
+        System.out.printf("Процент побед: %.1f%%%n", stats.winRate());
+        System.out.println("=========================");
     }
 }

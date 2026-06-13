@@ -1,6 +1,6 @@
 package ru.yandex.practicum.game;
 
-import ru.yandex.practicum.exception.GameException;
+import ru.yandex.practicum.exception.game.GameException;
 import java.util.List;
 
 /**

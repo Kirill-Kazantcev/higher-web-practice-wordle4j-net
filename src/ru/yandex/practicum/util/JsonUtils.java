@@ -2,127 +2,96 @@ package ru.yandex.practicum.util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class JsonUtils {
+public final class JsonUtils {
+    private JsonUtils() {}
 
-    @SuppressWarnings("ClassCanBeRecord")
-    public static class TopPlayer {
-        public final String nickname;
-        public final int wins;
-        public final double winRate;
-
-        public TopPlayer(String nickname, int wins, double winRate) {
-            this.nickname = nickname;
-            this.wins = wins;
-            this.winRate = winRate;
-        }
+    public static String escape(String value) {
+        if (value == null) return "";
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    @SuppressWarnings("ClassCanBeRecord")
-    public static class PlayerStats {
-        public final String nickname;
-        public final int wins;
-        public final int losses;
-        public final int hintsUsed;
-        public final double avgSteps;
-        public final double winRate;
-
-        public PlayerStats(String nickname, int wins, int losses, int hintsUsed, double avgSteps, double winRate) {
-            this.nickname = nickname;
-            this.wins = wins;
-            this.losses = losses;
-            this.hintsUsed = hintsUsed;
-            this.avgSteps = avgSteps;
-            this.winRate = winRate;
-        }
+    public static String toWinSubmissionJson(String nickname, int steps, boolean usedHints) {
+        return String.format("{\"nickname\":\"%s\",\"win\":true,\"steps\":%d,\"hintsUsed\":%d}",
+                escape(nickname), steps, usedHints ? 1 : 0);
     }
 
-    public static List<TopPlayer> parseTopPlayers(String json) {
-        List<TopPlayer> result = new ArrayList<>();
-        try {
-            int topIdx = json.indexOf("\"top\":");
-            if (topIdx == -1) return result;
-            int start = json.indexOf('[', topIdx);
-            int end = json.lastIndexOf(']');
-            if (start == -1 || end == -1 || start >= end) return result;
-            String content = json.substring(start + 1, end);
-            if (content.trim().isEmpty()) return result;
+    public static List<TopPlayerEntry> parseTopResponse(String json) {
+        List<TopPlayerEntry> entries = new ArrayList<>();
 
-            int braceCount = 0, lastStart = 0;
-            for (int i = 0; i < content.length(); i++) {
-                char c = content.charAt(i);
-                if (c == '{') {
-                    if (braceCount == 0) lastStart = i;
-                    braceCount++;
-                } else if (c == '}') {
-                    braceCount--;
-                    if (braceCount == 0) {
-                        String obj = content.substring(lastStart, i + 1);
-                        String nickname = extractJsonValue(obj, "nickname");
-                        String winsStr = extractJsonValue(obj, "wins");
-                        String winRateStr = extractJsonValue(obj, "winRate");
-                        if (nickname != null && winsStr != null) {
-                            try {
-                                int wins = Integer.parseInt(winsStr);
-                                double winRate = winRateStr != null ? Double.parseDouble(winRateStr) : 0.0;
-                                result.add(new TopPlayer(nickname, wins, winRate));
-                            } catch (NumberFormatException ignored) {
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) {
+        int topStart = json.indexOf("\"top\":");
+        if (topStart == -1) return entries;
+        int arrayStart = json.indexOf('[', topStart);
+        int arrayEnd = json.lastIndexOf(']');
+        if (arrayStart == -1 || arrayEnd == -1) return entries;
+
+        String content = json.substring(arrayStart + 1, arrayEnd);
+        Pattern pattern = Pattern.compile("\"nickname\"\\s*:\\s*\"([^\"]+)\".*?\"wins\"\\s*:\\s*(\\d+)");
+        Matcher matcher = pattern.matcher(content);
+
+        int rank = 1;
+        while (matcher.find()) {
+            entries.add(new TopPlayerEntry(matcher.group(1), Integer.parseInt(matcher.group(2)), rank++));
         }
-        return result;
+        return entries;
     }
+
+    public record PlayerStats(String nickname, int wins, int losses, int hintsUsed,
+                              double avgSteps, double winRate) {}
 
     public static PlayerStats parsePlayerStats(String json) {
-        String nickname = extractJsonValue(json, "nickname");
-        String winsStr = extractJsonValue(json, "wins");
-        if (nickname == null || winsStr == null) return null;
         try {
-            int wins = Integer.parseInt(winsStr);
-
-            String lossesStr = extractJsonValue(json, "losses");
-            int losses = lossesStr != null ? Integer.parseInt(lossesStr) : 0;
-
-            String hintsStr = extractJsonValue(json, "hintsUsed");
-            int hintsUsed = hintsStr != null ? Integer.parseInt(hintsStr) : 0;
-
-            String avgStepsStr = extractJsonValue(json, "avgSteps");
-            double avgSteps = avgStepsStr != null ? Double.parseDouble(avgStepsStr) : 0.0;
-
-            String winRateStr = extractJsonValue(json, "winRate");
-            double winRate = winRateStr != null ? Double.parseDouble(winRateStr) : 0.0;
+            String nickname = extractNickname(json);
+            int wins = extractWins(json);
+            int losses = extractLosses(json);
+            int hintsUsed = extractHintsUsed(json);
+            double avgSteps = extractAvgSteps(json);
+            double winRate = extractWinRate(json);
 
             return new PlayerStats(nickname, wins, losses, hintsUsed, avgSteps, winRate);
-        } catch (NumberFormatException e) {
+        } catch (Exception e) {
             return null;
         }
     }
 
-    private static String extractJsonValue(String jsonPart, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = jsonPart.indexOf(pattern);
-        if (idx == -1) return null;
-        idx += pattern.length();
-        while (idx < jsonPart.length() && (jsonPart.charAt(idx) == ' ' || jsonPart.charAt(idx) == '\t')) {
-            idx++;
-        }
-        if (idx >= jsonPart.length()) return null;
-        if (jsonPart.charAt(idx) == '"') {
-            int startQuote = idx + 1;
-            int endQuote = jsonPart.indexOf('"', startQuote);
-            if (endQuote == -1) return null;
-            return jsonPart.substring(startQuote, endQuote);
-        } else {
-            int endNum = idx;
-            while (endNum < jsonPart.length() && (Character.isDigit(jsonPart.charAt(endNum)) ||
-                    jsonPart.charAt(endNum) == '.' || jsonPart.charAt(endNum) == '-')) {
-                endNum++;
-            }
-            return jsonPart.substring(idx, endNum);
-        }
+    public record TopPlayerEntry(String nickname, int wins, int rank) {}
+
+    // Упрощённые методы без параметра key
+    private static String extractNickname(String json) {
+        Pattern p = Pattern.compile("\"nickname\"\\s*:\\s*\"([^\"]*)\"");
+        Matcher m = p.matcher(json);
+        return m.find() ? m.group(1) : null;
+    }
+
+    private static int extractWins(String json) {
+        Pattern p = Pattern.compile("\"wins\"\\s*:\\s*(\\d+)");
+        Matcher m = p.matcher(json);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private static int extractLosses(String json) {
+        Pattern p = Pattern.compile("\"losses\"\\s*:\\s*(\\d+)");
+        Matcher m = p.matcher(json);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private static int extractHintsUsed(String json) {
+        Pattern p = Pattern.compile("\"hintsUsed\"\\s*:\\s*(\\d+)");
+        Matcher m = p.matcher(json);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private static double extractAvgSteps(String json) {
+        Pattern p = Pattern.compile("\"avgSteps\"\\s*:\\s*([\\d.]+)");
+        Matcher m = p.matcher(json);
+        return m.find() ? Double.parseDouble(m.group(1)) : 0.0;
+    }
+
+    private static double extractWinRate(String json) {
+        Pattern p = Pattern.compile("\"winRate\"\\s*:\\s*([\\d.]+)");
+        Matcher m = p.matcher(json);
+        return m.find() ? Double.parseDouble(m.group(1)) : 0.0;
     }
 }

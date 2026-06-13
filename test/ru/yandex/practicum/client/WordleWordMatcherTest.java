@@ -1,4 +1,4 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
 import ru.yandex.practicum.game.WordleWordMatcher;
 import org.junit.jupiter.api.BeforeEach;

@@ -1,12 +1,12 @@
-package ru.yandex.practicum;
+package ru.yandex.practicum.client;
 
-import ru.yandex.practicum.exception.GameException;
+import ru.yandex.practicum.exception.game.GameException;
+import ru.yandex.practicum.exception.system.GameStateException;
 import ru.yandex.practicum.game.Dictionary;
 import ru.yandex.practicum.game.GameConstants;
 import ru.yandex.practicum.game.WordMatcher;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+
+import java.util.*;
 
 public class WordleGame implements GameConstants {
     public static final int MAX_STEPS = GameConstants.MAX_STEPS;
@@ -38,7 +38,7 @@ public class WordleGame implements GameConstants {
 
     public String makeMove(String word) throws GameException {
         if (isFinished()) {
-            throw new IllegalStateException("Игра уже завершена.");
+            throw new GameStateException("Игра уже завершена.");
         }
         dictionary.validate(word);
         String hint = matcher.match(word, answer);
@@ -49,6 +49,9 @@ public class WordleGame implements GameConstants {
     }
 
     public String getHintWord() throws GameException {
+        if (isFinished()) {
+            throw new GameStateException("Игра уже завершена, нельзя запросить подсказку.");
+        }
         hintsUsed++;
         List<String> candidates = getPossibleWords();
         if (candidates.isEmpty()) {
@@ -79,10 +82,19 @@ public class WordleGame implements GameConstants {
         return isWin() || stepsLeft <= 0;
     }
 
-    public int getStepsUsed() { return guesses.size(); }
-    public int getHintsUsed() { return hintsUsed; }
-    public int getStepsLeft() { return stepsLeft; }
-    public String getAnswer() { return answer; }
-    public List<String> getGuesses() { return List.copyOf(guesses); }
-    public List<String> getHints() { return List.copyOf(hints); }
+    public int getStepsUsed() {
+        return guesses.size();
+    }
+
+    public int getHintsUsed() {
+        return hintsUsed;
+    }
+
+    public int getStepsLeft() {
+        return stepsLeft;
+    }
+
+    public String getAnswer() {
+        return answer;
+    }
 }

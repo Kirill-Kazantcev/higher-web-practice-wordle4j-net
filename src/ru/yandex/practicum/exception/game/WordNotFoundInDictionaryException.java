@@ -1,4 +1,4 @@
-package ru.yandex.practicum.exception;
+package ru.yandex.practicum.exception.game;
 
 /**
  * Исключение, если слово отсутствует в словаре.

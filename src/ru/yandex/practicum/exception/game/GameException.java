@@ -1,4 +1,4 @@
-package ru.yandex.practicum.exception;
+package ru.yandex.practicum.exception.game;
 
 /**
  * Базовое исключение для всех игровых ошибок.
