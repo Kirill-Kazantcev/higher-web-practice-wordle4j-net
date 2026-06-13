@@ -22,7 +22,7 @@ class WordleServerStatisticLoaderTest {
     }
 
     @Test
-    void saveAndLoad_shouldPreserveData(@TempDir Path tempDir) throws IOException {
+    void saveAndLoad_shouldPreserveData(@TempDir Path tempDir) {
         Path statsFile = tempDir.resolve("stats.txt");
         WordleServerStatisticLoader loader = new WordleServerStatisticLoader(statsFile.toString());
 
@@ -34,13 +34,7 @@ class WordleServerStatisticLoaderTest {
         loader.save(statsToSave);
         Map<String, WordleServerStatisticLoader.PlayerStats> loadedStats = loader.load();
 
-        assertEquals(2, loadedStats.size());
-        assertTrue(loadedStats.containsKey("Кирилл"));
-        assertTrue(loadedStats.containsKey("Анна"));
-        assertEquals(20, loadedStats.get("Кирилл").wins);
-        assertEquals(1, loadedStats.get("Кирилл").losses);
-        assertEquals(5, loadedStats.get("Кирилл").hintsUsed);
-        assertEquals(80, loadedStats.get("Кирилл").totalSteps);
+        assertStatsEqual(statsToSave, loadedStats);
     }
 
     @Test
@@ -75,5 +69,21 @@ class WordleServerStatisticLoaderTest {
     void playerStats_noWins_avgStepsShouldBeZero() {
         WordleServerStatisticLoader.PlayerStats ps = new WordleServerStatisticLoader.PlayerStats(0, 10, 5, 0);
         assertEquals(0.0, ps.getAvgSteps(), 0.01);
+    }
+    private void assertStatsEqual(Map<String, WordleServerStatisticLoader.PlayerStats> expected,
+                                  Map<String, WordleServerStatisticLoader.PlayerStats> actual) {
+        assertEquals(expected.size(), actual.size(), "Количество записей не совпадает");
+
+        for (String name : expected.keySet()) {
+            assertTrue(actual.containsKey(name), "Отсутствует игрок: " + name);
+
+            WordleServerStatisticLoader.PlayerStats expectedStats = expected.get(name);
+            WordleServerStatisticLoader.PlayerStats actualStats = actual.get(name);
+
+            assertEquals(expectedStats.wins, actualStats.wins, "wins для " + name);
+            assertEquals(expectedStats.losses, actualStats.losses, "losses для " + name);
+            assertEquals(expectedStats.hintsUsed, actualStats.hintsUsed, "hintsUsed для " + name);
+            assertEquals(expectedStats.totalSteps, actualStats.totalSteps, "totalSteps для " + name);
+        }
     }
 }

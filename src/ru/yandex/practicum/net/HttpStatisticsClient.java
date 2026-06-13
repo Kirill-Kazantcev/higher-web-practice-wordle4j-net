@@ -9,29 +9,18 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
-/**
- * Отвечает за общение с сервером статистики.
- */
-public class WordleStatisticsClient {
+public class HttpStatisticsClient implements StatisticsClient {
     private final String serverUrl;
     private final HttpClient httpClient;
 
-    public WordleStatisticsClient(String serverUrl) {
+    public HttpStatisticsClient(String serverUrl) {
         this.serverUrl = serverUrl;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
     }
 
-    /**
-     * Отправляет результат игры на сервер.
-     *
-     * @param nickname  никнейм игрока
-     * @param win       победа или поражение
-     * @param steps     количество использованных ходов
-     * @param hintsUsed количество подсказок
-     * @return true, если отправка успешна
-     */
+    @Override
     public boolean sendGameResult(String nickname, boolean win, int steps, int hintsUsed) {
         String json = String.format("{\"nickname\":\"%s\",\"win\":%b,\"steps\":%d,\"hintsUsed\":%d}",
                 escapeJson(nickname), win, steps, hintsUsed);
@@ -49,11 +38,7 @@ public class WordleStatisticsClient {
         }
     }
 
-    /**
-     * Получает топ-10 игроков в виде JSON-строки.
-     *
-     * @return JSON с топом или null при ошибке
-     */
+    @Override
     public String fetchTopPlayers() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
@@ -68,12 +53,7 @@ public class WordleStatisticsClient {
         }
     }
 
-    /**
-     * Получает статистику игрока по никнейму.
-     *
-     * @param nickname никнейм
-     * @return JSON со статистикой или null
-     */
+    @Override
     public String fetchPlayerStats(String nickname) {
         try {
             String encoded = URLEncoder.encode(nickname, StandardCharsets.UTF_8);

@@ -23,6 +23,7 @@ public class ConfigLoader {
         return Integer.parseInt(getString(key));
     }
 
+    @SuppressWarnings("unused")
     public boolean getBoolean(String key) {
         return Boolean.parseBoolean(getString(key));
     }

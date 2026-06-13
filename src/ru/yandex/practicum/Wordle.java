@@ -2,51 +2,40 @@ package ru.yandex.practicum;
 
 import ru.yandex.practicum.exception.GameException;
 import ru.yandex.practicum.game.WordleWordMatcher;
-import ru.yandex.practicum.net.WordleStatisticsClient;
+import ru.yandex.practicum.net.HttpStatisticsClient;
+import ru.yandex.practicum.net.StatisticsClient;
 import ru.yandex.practicum.util.ConfigLoader;
+import ru.yandex.practicum.util.JsonUtils;
 
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.List;
 import java.util.Scanner;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-/**
- * Главный класс игры Wordle.
- * <p>
- * Отвечает за инициализацию, взаимодействие с пользователем,
- * логирование и запуск игрового цикла.
- * </p>
- */
 public class Wordle {
+    private static final Logger LOGGER = Logger.getLogger(Wordle.class.getName());
     private static PrintWriter log;
-    private static WordleStatisticsClient statsClient;
+    private static StatisticsClient statsClient;
     private static String lastNickname = null;
 
-    /**
-     * Точка входа в программу. Загружает словарь, запускает игровой цикл.
-     *
-     * @param args аргументы командной строки (не используются)
-     */
     public static void main(String[] args) {
         try {
-            // Загрузка конфигурации
             ConfigLoader config = new ConfigLoader("application.properties");
             String dictFile = config.getString("dictionary.path");
             String serverUrl = config.getString("server.url");
             String logFile = config.getString("log.file");
 
-            // Настройка лога
             log = new PrintWriter(new FileWriter(logFile, true), true);
             log.println("=== Игра Wordle запущена ===");
 
-            // Загрузка словаря
             WordleDictionaryLoader loader = new WordleDictionaryLoader();
             WordleDictionary dictionary = loader.load(dictFile);
             log.println("Словарь загружен. Количество слов: " + dictionary.size());
 
-            // Создание зависимостей
             WordleWordMatcher matcher = new WordleWordMatcher();
-            statsClient = new WordleStatisticsClient(serverUrl);
+            statsClient = new HttpStatisticsClient(serverUrl);
 
             Scanner scanner = new Scanner(System.in);
             System.out.println("Добро пожаловать в игру Wordle!");
@@ -93,21 +82,17 @@ public class Wordle {
                         System.out.println("Неверный выбор. Пожалуйста, введите 1, 2, 3 или 4.");
                 }
             }
-
             log.println("=== Игра Wordle завершена ===");
+
         } catch (Exception e) {
             System.err.println("Критическая ошибка: " + e.getMessage());
-            if (log != null) log.println("Критическая ошибка: " + e.getMessage());
-            e.printStackTrace();
+            if (log != null) {
+                log.println("Критическая ошибка: " + e.getMessage());
+            }
+            LOGGER.log(Level.SEVERE, "Критическая ошибка", e);
         }
     }
 
-    /**
-     * Запускает игровой цикл для одной игры.
-     *
-     * @param game    текущая игра
-     * @param scanner сканнер для ввода с клавиатуры
-     */
     private static void runGame(WordleGame game, Scanner scanner) {
         while (!game.isFinished()) {
             System.out.println("\nОсталось попыток: " + game.getStepsLeft());
@@ -116,12 +101,10 @@ public class Wordle {
 
             if (input.isEmpty()) {
                 try {
-                    String hintWord = game.getHintWord();
-                    System.out.println("Подсказка: " + hintWord);
-                    log.println("Игрок запросил подсказку. Предложено: " + hintWord);
+                    System.out.println("Подсказка: " + game.getHintWord());
+                    log.println("Игрок запросил подсказку.");
                 } catch (GameException e) {
                     System.out.println("Не удалось получить подсказку: " + e.getMessage());
-                    log.println("Ошибка подсказки: " + e.getMessage());
                 }
                 continue;
             }
@@ -134,7 +117,7 @@ public class Wordle {
                 if (game.isWin()) {
                     System.out.println("\nПоздравляем! Вы угадали слово \"" + game.getAnswer() + "\"!");
                     System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
-                    log.println("Игрок победил за " + game.getStepsUsed() + " ходов, использовано подсказок: " + game.getHintsUsed());
+                    log.println("Игрок победил за " + game.getStepsUsed() + " ходов, подсказок: " + game.getHintsUsed());
                     sendGameResult(game, true, scanner);
                 }
             } catch (Exception e) {
@@ -145,20 +128,13 @@ public class Wordle {
         if (!game.isWin()) {
             System.out.println("\nВы проиграли. Загаданное слово: " + game.getAnswer());
             System.out.println("Вы использовали " + game.getStepsUsed() + " попыток и " + game.getHintsUsed() + " подсказок.");
-            log.println("Игрок проиграл, использовано подсказок: " + game.getHintsUsed());
+            log.println("Игрок проиграл, подсказок: " + game.getHintsUsed());
             sendGameResult(game, false, scanner);
         }
         finishGame(game);
         System.out.println("\nВозврат в главное меню.");
     }
 
-    /**
-     * Отправляет результат игры на сервер статистики.
-     *
-     * @param game    текущая игра
-     * @param win     флаг победы (true - победа, false - поражение)
-     * @param scanner сканнер для ввода никнейма
-     */
     private static void sendGameResult(WordleGame game, boolean win, Scanner scanner) {
         String nickname = lastNickname;
         if (nickname == null) {
@@ -177,155 +153,42 @@ public class Wordle {
             }
         }
 
-        boolean success = statsClient.sendGameResult(nickname, win, game.getStepsUsed(), game.getHintsUsed());
-        if (success) {
+        if (statsClient.sendGameResult(nickname, win, game.getStepsUsed(), game.getHintsUsed())) {
             System.out.println("Статистика сохранена!");
             log.println("Статистика отправлена для " + nickname);
             String topJson = statsClient.fetchTopPlayers();
-            if (topJson != null) {
-                printTopPlayers(topJson);
-            }
+            if (topJson != null) printTopPlayers(topJson);
         } else {
             System.out.println("Не удалось сохранить статистику.");
             log.println("Ошибка отправки статистики.");
         }
     }
 
-    /**
-     * Выводит в консоль топ-10 игроков из JSON-строки.
-     * <p>
-     * Метод парсит JSON, извлекая массив top и выводя каждого игрока
-     * с порядковым номером, никнеймом, количеством побед и процентом побед.
-     * </p>
-     *
-     * @param json JSON-строка от сервера в формате {"top": [{"nickname": "...", "wins": N, "winRate": X.X}, ...]}
-     */
     private static void printTopPlayers(String json) {
-        try {
-            int topIdx = json.indexOf("\"top\":");
-            if (topIdx == -1) {
-                System.out.println("Не найден ключ 'top'");
-                return;
-            }
-
-            int start = json.indexOf('[', topIdx);
-            int end = json.lastIndexOf(']');
-            if (start == -1 || end == -1 || start >= end) {
-                System.out.println("Не найден массив top");
-                return;
-            }
-
-            String content = json.substring(start + 1, end);
-            if (content.trim().isEmpty()) {
-                System.out.println("Топ пуст");
-                return;
-            }
-
-            int rank = 1;
-            int braceCount = 0;
-            int lastStart = 0;
-
-            for (int i = 0; i < content.length(); i++) {
-                char c = content.charAt(i);
-                if (c == '{') {
-                    if (braceCount == 0) {
-                        lastStart = i;
-                    }
-                    braceCount++;
-                } else if (c == '}') {
-                    braceCount--;
-                    if (braceCount == 0) {
-                        String obj = content.substring(lastStart, i + 1);
-                        String nickname = extractJsonValue(obj, "nickname");
-                        String winsStr = extractJsonValue(obj, "wins");
-                        String winRateStr = extractJsonValue(obj, "winRate");
-
-                        if (nickname != null && winsStr != null) {
-                            try {
-                                int wins = Integer.parseInt(winsStr);
-                                double winRate = winRateStr != null ? Double.parseDouble(winRateStr) : 0.0;
-                                System.out.printf("%d. %s - %d побед (%.1f%%)%n", rank, nickname, wins, winRate);
-                                rank++;
-                            } catch (NumberFormatException ignored) {
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (rank == 1) {
-                System.out.println("Нет данных для отображения");
-            }
-        } catch (Exception e) {
-            System.out.println("Ошибка вывода топа: " + e.getMessage());
+        List<JsonUtils.TopPlayer> top = JsonUtils.parseTopPlayers(json);
+        if (top.isEmpty()) {
+            System.out.println("Нет данных для отображения");
+            return;
+        }
+        int rank = 1;
+        for (JsonUtils.TopPlayer p : top) {
+            System.out.printf("%d. %s - %d побед (%.1f%%)%n", rank++, p.nickname, p.wins, p.winRate);
         }
     }
 
-    /**
-     * Выводит в консоль статистику игрока из JSON-строки.
-     *
-     * @param json JSON-строка с данными игрока
-     */
     private static void printPlayerStats(String json) {
-        String nickname = extractJsonValue(json, "nickname");
-        String wins = extractJsonValue(json, "wins");
-        String losses = extractJsonValue(json, "losses");
-        String hints = extractJsonValue(json, "hintsUsed");
-        String avgSteps = extractJsonValue(json, "avgSteps");
-        String winRate = extractJsonValue(json, "winRate");
-        if (nickname != null && wins != null) {
-            System.out.printf("Игрок: %s%nПобед: %s%nПоражений: %s%nИспользовано подсказок: %s%nСреднее число ходов: %s%nПроцент побед: %s%%%n",
-                    nickname, wins, losses, hints, avgSteps, winRate);
-        } else {
+        JsonUtils.PlayerStats ps = JsonUtils.parsePlayerStats(json);
+        if (ps == null) {
             System.out.println("Не удалось разобрать статистику.");
+            return;
         }
+        System.out.printf("Игрок: %s%nПобед: %d%nПоражений: %d%nПодсказок: %d%nСреднее число ходов: %.2f%nПроцент побед: %.1f%%%n",
+                ps.nickname, ps.wins, ps.losses, ps.hintsUsed, ps.avgSteps, ps.winRate);
     }
 
-    /**
-     * Извлекает значение поля из фрагмента JSON.
-     * <p>
-     * Поддерживает как строковые значения в кавычках, так и числовые значения без кавычек.
-     * </p>
-     *
-     * @param jsonPart фрагмент JSON (например, {"nickname": "Никнейм", "wins": 20})
-     * @param key      имя ключа для поиска
-     * @return значение в виде строки или null, если ключ не найден
-     */
-    private static String extractJsonValue(String jsonPart, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = jsonPart.indexOf(pattern);
-        if (idx == -1) return null;
-        idx += pattern.length();
-        while (idx < jsonPart.length() && (jsonPart.charAt(idx) == ' ' || jsonPart.charAt(idx) == '\t')) {
-            idx++;
-        }
-        if (idx >= jsonPart.length()) return null;
-        if (jsonPart.charAt(idx) == '"') {
-            int startQuote = idx + 1;
-            int endQuote = jsonPart.indexOf('"', startQuote);
-            if (endQuote == -1) return null;
-            return jsonPart.substring(startQuote, endQuote);
-        } else {
-            int startNum = idx;
-            int endNum = startNum;
-            while (endNum < jsonPart.length() && (Character.isDigit(jsonPart.charAt(endNum)) ||
-                    jsonPart.charAt(endNum) == '.' || jsonPart.charAt(endNum) == '-')) {
-                endNum++;
-            }
-            return jsonPart.substring(startNum, endNum);
-        }
-    }
-
-    /**
-     * Записывает в лог финальную информацию об игре.
-     *
-     * @param game завершённая игра
-     */
     private static void finishGame(WordleGame game) {
         log.println("Игра завершена. Победа: " + game.isWin());
-        if (game.getHintsUsed() > 0) {
-            log.println("Игрок использовал подсказок: " + game.getHintsUsed());
-        }
+        if (game.getHintsUsed() > 0) log.println("Использовано подсказок: " + game.getHintsUsed());
         log.println("История ходов: " + game.getGuesses());
         log.println("Подсказки: " + game.getHints());
     }

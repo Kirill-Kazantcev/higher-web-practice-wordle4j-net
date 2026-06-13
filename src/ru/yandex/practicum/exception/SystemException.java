@@ -1,8 +1,7 @@
 package ru.yandex.practicum.exception;
 
 /**
- * Исключение для системных ошибок, связанных с работой программы.
- * Например, ошибки ввода-вывода, некорректное состояние словаря.
+ * Исключение для системных ошибок (ввод-вывод, некорректное состояние).
  */
 public class SystemException extends RuntimeException {
     public SystemException(String message) {

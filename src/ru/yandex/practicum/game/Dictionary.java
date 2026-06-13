@@ -1,13 +1,14 @@
 package ru.yandex.practicum.game;
 
+import ru.yandex.practicum.exception.GameException;
 import java.util.List;
 
 /**
- * Абстракция словаря слов.
- * Позволяет подменять реализацию (файл, БД, генератор).
+ * Интерфейс словаря слов.
  */
 public interface Dictionary {
     List<String> getAllWords();
     boolean contains(String word);
     int size();
+    void validate(String word) throws GameException;
 }

@@ -1,11 +1,12 @@
 package ru.yandex.practicum;
 
+import ru.yandex.practicum.exception.GameException;
 import ru.yandex.practicum.exception.InvalidWordFormatException;
 import ru.yandex.practicum.exception.WordNotFoundInDictionaryException;
 import ru.yandex.practicum.game.Dictionary;
-
 import java.util.List;
 
+@SuppressWarnings("ClassCanBeRecord")
 public class WordleDictionary implements Dictionary {
     private final List<String> words;
 
@@ -28,8 +29,8 @@ public class WordleDictionary implements Dictionary {
         return words.size();
     }
 
-    // Валидация остаётся, но теперь использует contains
-    public void validateWord(String word) throws InvalidWordFormatException, WordNotFoundInDictionaryException {
+    @Override
+    public void validate(String word) throws GameException {
         if (word.length() != 5) {
             throw new InvalidWordFormatException("Слово должно состоять ровно из 5 букв.");
         }
@@ -37,6 +38,4 @@ public class WordleDictionary implements Dictionary {
             throw new WordNotFoundInDictionaryException(word);
         }
     }
-
-    // Статический метод analyze удалён, он перенесён в WordleWordMatcher
 }

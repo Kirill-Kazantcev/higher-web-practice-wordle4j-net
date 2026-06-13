@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@SuppressWarnings("FieldCanBeLocal")
 class WordleGameTest {
     private WordleDictionary dictionary;
     private WordleWordMatcher matcher;

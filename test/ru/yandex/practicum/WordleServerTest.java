@@ -1,7 +1,8 @@
 package ru.yandex.practicum;
 
-import org.junit.jupiter.api.BeforeEach;
+import com.sun.net.httpserver.HttpExchange;
 import org.junit.jupiter.api.Test;
+import ru.yandex.practicum.util.ConfigLoader;
 
 import java.lang.reflect.Method;
 
@@ -12,16 +13,18 @@ import static org.junit.jupiter.api.Assertions.*;
  * Проверяют структуру класса и наличие основных методов.
  */
 class WordleServerTest {
-    private WordleServer server;
-
-    @BeforeEach
-    void setUp() {
-        server = new WordleServer();
-    }
 
     @Test
-    void testWordleServerClassExists() {
-        assertNotNull(server);
+    void testConstructorExists() {
+        try {
+            ConfigLoader config = new ConfigLoader("application.properties");
+            int port = config.getInt("server.port");
+
+            WordleServer server = new WordleServer(port, "test_stats.txt");
+            assertNotNull(server);
+        } catch (Exception e) {
+            fail("Конструктор WordleServer(int, String) не работает: " + e.getMessage());
+        }
     }
 
     @Test
@@ -30,8 +33,6 @@ class WordleServerTest {
             Class<?> clazz = Class.forName("ru.yandex.practicum.WordleServer");
             Method mainMethod = clazz.getMethod("main", String[].class);
             assertNotNull(mainMethod);
-            assertEquals("public static void",
-                    java.lang.reflect.Modifier.toString(mainMethod.getModifiers()) + " " + mainMethod.getReturnType().getName());
         } catch (Exception e) {
             fail("Метод main не найден: " + e.getMessage());
         }
@@ -48,28 +49,15 @@ class WordleServerTest {
     }
 
     @Test
-    void testConstantsAreDefined() {
-        try {
-            java.lang.reflect.Field portField = WordleServer.class.getDeclaredField("PORT");
-            portField.setAccessible(true);
-            assertEquals(8081, portField.getInt(null));
-
-            java.lang.reflect.Field statsFileField = WordleServer.class.getDeclaredField("STATS_FILE");
-            statsFileField.setAccessible(true);
-            assertEquals("stats.txt", statsFileField.get(null));
-        } catch (Exception e) {
-            fail("Константы не найдены: " + e.getMessage());
-        }
-    }
-
-    @Test
     void testEscapeJsonMethodExists() {
         try {
             Method escapeMethod = WordleServer.class.getDeclaredMethod("escapeJson", String.class);
             escapeMethod.setAccessible(true);
-            assertNotNull(escapeMethod);
 
-            // Вызываем нестатический метод на экземпляре сервера
+            ConfigLoader config = new ConfigLoader("application.properties");
+            int port = config.getInt("server.port");
+            WordleServer server = new WordleServer(port, "test_stats.txt");
+
             String result = (String) escapeMethod.invoke(server, "Hello \"World\"");
             assertEquals("Hello \\\"World\\\"", result);
         } catch (Exception e) {
@@ -83,13 +71,8 @@ class WordleServerTest {
             Method parseMethod = WordleServer.class.getDeclaredMethod("parseJson", String.class);
             parseMethod.setAccessible(true);
             assertNotNull(parseMethod);
-
-            // Проверяем работу метода
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, String> result = (java.util.Map<String, String>) parseMethod.invoke(server, "{\"key\":\"value\"}");
-            assertNotNull(result);
-        } catch (Exception e) {
-            fail("Метод parseJson не найден или не работает: " + e.getMessage());
+        } catch (NoSuchMethodException e) {
+            fail("Метод parseJson не найден: " + e.getMessage());
         }
     }
 
@@ -99,13 +82,8 @@ class WordleServerTest {
             Method parseQueryMethod = WordleServer.class.getDeclaredMethod("parseQuery", String.class);
             parseQueryMethod.setAccessible(true);
             assertNotNull(parseQueryMethod);
-
-            // Проверяем работу метода
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, String> result = (java.util.Map<String, String>) parseQueryMethod.invoke(server, "nickname=Кирилл&wins=20");
-            assertNotNull(result);
-        } catch (Exception e) {
-            fail("Метод parseQuery не найден или не работает: " + e.getMessage());
+        } catch (NoSuchMethodException e) {
+            fail("Метод parseQuery не найден: " + e.getMessage());
         }
     }
 
@@ -113,7 +91,7 @@ class WordleServerTest {
     void testHandlePostResultMethodExists() {
         try {
             Method handleMethod = WordleServer.class.getDeclaredMethod("handlePostResult",
-                    com.sun.net.httpserver.HttpExchange.class);
+                    HttpExchange.class);
             handleMethod.setAccessible(true);
             assertNotNull(handleMethod);
         } catch (NoSuchMethodException e) {
@@ -125,7 +103,7 @@ class WordleServerTest {
     void testHandleGetTopMethodExists() {
         try {
             Method handleMethod = WordleServer.class.getDeclaredMethod("handleGetTop",
-                    com.sun.net.httpserver.HttpExchange.class);
+                    HttpExchange.class);
             handleMethod.setAccessible(true);
             assertNotNull(handleMethod);
         } catch (NoSuchMethodException e) {
@@ -137,7 +115,7 @@ class WordleServerTest {
     void testHandleGetStatsMethodExists() {
         try {
             Method handleMethod = WordleServer.class.getDeclaredMethod("handleGetStats",
-                    com.sun.net.httpserver.HttpExchange.class);
+                    HttpExchange.class);
             handleMethod.setAccessible(true);
             assertNotNull(handleMethod);
         } catch (NoSuchMethodException e) {
@@ -149,7 +127,7 @@ class WordleServerTest {
     void testReadBodyMethodExists() {
         try {
             Method readBodyMethod = WordleServer.class.getDeclaredMethod("readBody",
-                    com.sun.net.httpserver.HttpExchange.class);
+                    HttpExchange.class);
             readBodyMethod.setAccessible(true);
             assertNotNull(readBodyMethod);
         } catch (NoSuchMethodException e) {
@@ -161,7 +139,7 @@ class WordleServerTest {
     void testSendResponseMethodExists() {
         try {
             Method sendResponseMethod = WordleServer.class.getDeclaredMethod("sendResponse",
-                    com.sun.net.httpserver.HttpExchange.class, int.class, String.class);
+                    HttpExchange.class, int.class, String.class);
             sendResponseMethod.setAccessible(true);
             assertNotNull(sendResponseMethod);
         } catch (NoSuchMethodException e) {

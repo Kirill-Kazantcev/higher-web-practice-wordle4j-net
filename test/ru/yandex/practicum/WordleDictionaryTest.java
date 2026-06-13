@@ -19,20 +19,20 @@ class WordleDictionaryTest {
 
     @Test
     void validateWord_validWord_shouldPass() {
-        assertDoesNotThrow(() -> dictionary.validateWord("аббат"));
-        assertDoesNotThrow(() -> dictionary.validateWord("вагон"));
+        assertDoesNotThrow(() -> dictionary.validate("аббат"));
+        assertDoesNotThrow(() -> dictionary.validate("вагон"));
     }
 
     @Test
     void validateWord_invalidLength_shouldThrowInvalidWordFormatException() {
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validateWord("привет"));
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validateWord("кот"));
-        assertThrows(InvalidWordFormatException.class, () -> dictionary.validateWord("елка"));
+        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("привет"));
+        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("кот"));
+        assertThrows(InvalidWordFormatException.class, () -> dictionary.validate("елка"));
     }
 
     @Test
     void validateWord_wordNotInDictionary_shouldThrowWordNotFoundInDictionaryException() {
-        assertThrows(WordNotFoundInDictionaryException.class, () -> dictionary.validateWord("пенёк"));
+        assertThrows(WordNotFoundInDictionaryException.class, () -> dictionary.validate("пенёк"));
     }
 
     @Test

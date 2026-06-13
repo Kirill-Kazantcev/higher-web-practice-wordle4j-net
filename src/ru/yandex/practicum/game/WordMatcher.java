@@ -1,7 +1,7 @@
 package ru.yandex.practicum.game;
 
 /**
- * Определяет, как вычисляется строка подсказки (+ ^ -) для пары "догадка – ответ".
+ * Интерфейс для вычисления строки подсказки (+ ^ -).
  */
 @FunctionalInterface
 public interface WordMatcher {
