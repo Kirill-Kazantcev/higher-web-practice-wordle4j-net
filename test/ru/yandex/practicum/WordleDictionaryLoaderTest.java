@@ -63,8 +63,43 @@ class WordleDictionaryLoaderTest {
     @Test
     void load_withYoReplacement_shouldReplaceYoWithE(@TempDir Path tempDir) throws IOException {
         Path dictFile = tempDir.resolve("words.txt");
-        Files.write(dictFile, List.of("ёжик", "ёлка", "пёс"));
+        Files.write(dictFile, List.of("ёжики", "ёлка"));
 
-        assertThrows(SystemException.class, () -> loader.load(dictFile.toString()));
+        WordleDictionary dictionary = loader.load(dictFile.toString());
+        List<String> words = dictionary.getAllWords();
+
+        assertTrue(words.contains("ежики"));
+        assertFalse(words.contains("елка"));
+        assertEquals(1, words.size());
+    }
+
+    @Test
+    void load_withValidYoWords_shouldReplaceAndLoad(@TempDir Path tempDir) throws IOException {
+        Path dictFile = tempDir.resolve("words.txt");
+        // Правильные слова длины 5 с буквой 'ё'
+        Files.write(dictFile, List.of("сёгун", "тёлка", "пёсий"));
+
+        WordleDictionary dictionary = loader.load(dictFile.toString());
+        List<String> words = dictionary.getAllWords();
+
+        assertTrue(words.contains("сегун"));
+        assertTrue(words.contains("телка"));
+        assertTrue(words.contains("песий"));
+        assertEquals(3, words.size());
+    }
+
+    @Test
+    void load_withInvalidCharacters_shouldSkipWord(@TempDir Path tempDir) throws IOException {
+        Path dictFile = tempDir.resolve("words.txt");
+        Files.write(dictFile, List.of("аббат", "hello", "вагон", "12345"));
+
+        WordleDictionary dictionary = loader.load(dictFile.toString());
+        List<String> words = dictionary.getAllWords();
+
+        assertEquals(2, words.size());
+        assertTrue(words.contains("аббат"));
+        assertTrue(words.contains("вагон"));
+        assertFalse(words.contains("hello"));
+        assertFalse(words.contains("12345"));
     }
 }

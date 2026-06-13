@@ -2,13 +2,14 @@ package ru.yandex.practicum;
 
 import ru.yandex.practicum.exception.GameException;
 import ru.yandex.practicum.game.Dictionary;
+import ru.yandex.practicum.game.GameConstants;
 import ru.yandex.practicum.game.WordMatcher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-public class WordleGame {
-    public static final int MAX_STEPS = 6;
+public class WordleGame implements GameConstants {
+    public static final int MAX_STEPS = GameConstants.MAX_STEPS;
 
     private final Dictionary dictionary;
     private final WordMatcher matcher;

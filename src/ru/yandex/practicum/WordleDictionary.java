@@ -4,10 +4,11 @@ import ru.yandex.practicum.exception.GameException;
 import ru.yandex.practicum.exception.InvalidWordFormatException;
 import ru.yandex.practicum.exception.WordNotFoundInDictionaryException;
 import ru.yandex.practicum.game.Dictionary;
+import ru.yandex.practicum.game.GameConstants;
 import java.util.List;
 
 @SuppressWarnings("ClassCanBeRecord")
-public class WordleDictionary implements Dictionary {
+public class WordleDictionary implements Dictionary, GameConstants {
     private final List<String> words;
 
     public WordleDictionary(List<String> words) {
@@ -31,8 +32,8 @@ public class WordleDictionary implements Dictionary {
 
     @Override
     public void validate(String word) throws GameException {
-        if (word.length() != 5) {
-            throw new InvalidWordFormatException("Слово должно состоять ровно из 5 букв.");
+        if (word.length() != WORD_LENGTH) {
+            throw new InvalidWordFormatException("Слово должно состоять ровно из " + WORD_LENGTH + " букв.");
         }
         if (!contains(word)) {
             throw new WordNotFoundInDictionaryException(word);

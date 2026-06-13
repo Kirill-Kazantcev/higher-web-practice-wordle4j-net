@@ -1,29 +1,43 @@
 package ru.yandex.practicum.game;
 
-public class WordleWordMatcher implements WordMatcher {
+import java.util.HashMap;
+import java.util.Map;
+
+public class WordleWordMatcher implements WordMatcher, GameConstants {
     @Override
     public String match(String guess, String secret) {
-        StringBuilder result = new StringBuilder("-----");
-        boolean[] usedInAnswer = new boolean[5];
+        char[] result = new char[WORD_LENGTH];
 
-        for (int i = 0; i < 5; i++) {
+        Map<Character, Integer> secretFreq = new HashMap<>();
+        for (int i = 0; i < WORD_LENGTH; i++) {
+            char c = secret.charAt(i);
+            secretFreq.put(c, secretFreq.getOrDefault(c, 0) + 1);
+        }
+
+        for (int i = 0; i < WORD_LENGTH; i++) {
             if (guess.charAt(i) == secret.charAt(i)) {
-                result.setCharAt(i, '+');
-                usedInAnswer[i] = true;
+                result[i] = '+';
+                char c = guess.charAt(i);
+                secretFreq.put(c, secretFreq.get(c) - 1);
+            } else {
+                result[i] = '-';
             }
         }
 
-        for (int i = 0; i < 5; i++) {
-            if (result.charAt(i) == '+') continue;
-            char gChar = guess.charAt(i);
-            for (int j = 0; j < 5; j++) {
-                if (!usedInAnswer[j] && gChar == secret.charAt(j)) {
-                    result.setCharAt(i, '^');
-                    usedInAnswer[j] = true;
-                    break;
-                }
+        for (int i = 0; i < WORD_LENGTH; i++) {
+            if (result[i] == '+') {
+                continue;
+            }
+
+            char guessChar = guess.charAt(i);
+            Integer count = secretFreq.get(guessChar);
+
+            if (count != null && count > 0) {
+                result[i] = '^';
+                secretFreq.put(guessChar, count - 1);
             }
         }
-        return result.toString();
+
+        return new String(result);
     }
 }
